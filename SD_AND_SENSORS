@@ -1,0 +1,245 @@
+//sensors
+#include <Wire.h>
+
+// Possible sensor addresses (suffix correspond to DIP switch positions)
+#define GYRO_SENSOR_ADDR_OFF  (0x69)
+#define GYRO_SENSOR_ADDR_ON   (0x68)
+
+#define ACCEL_SENSOR_ADDR_OFF (0x1D)
+#define ACCEL_SENSOR_ADDR_ON  (0x53)
+
+
+
+// gyro sensor register addresses (gotten from datasheet)
+#define GYRO_REG_ACCEL_ADDR       (0x14)
+#define GYRO_REG_DATAX1_ADDR      (0x1D)
+#define GYRO_REG_DATAX0_ADDR      (0x1E)
+#define GYRO_REG_DATAY1_ADDR      (0x1F)
+#define GYRO_REG_DATAY0_ADDR      (0x20)
+#define GYRO_REG_DATAZ1_ADDR      (0x21)
+#define GYRO_REG_DATAZ0_ADDR      (0x22)
+#define GYRO_REG_USERC_ADDR       (0x3D)
+
+// accel sensor register addresses (gotten from datasheet)
+#define ACCEL_REG_DEVID_ADDR        (0x00)
+#define ACCEL_REG_THRESH_TAP_ADDR   (0x1D)
+#define ACCEL_REG_TAP_DUR_ADDR      (0x21)
+#define ACCEL_REG_TAP_LATENCY_ADDR  (0x22)
+#define ACCEL_REG_TAP_WINDOW_ADDR   (0x23)      
+#define ACCEL_REG_BW_RATE_ADDR      (0x2C)
+#define ACCEL_REG_PWR_CTL_ADDR      (0x2D)
+#define ACCEL_REG_INT_ENABLE_ADDR   (0x2E)
+#define ACCEL_REG_DATA_FORMAT_ADDR  (0x31)
+#define ACCEL_REG_DATAX0_ADDR       (0x32)
+#define ACCEL_REG_DATAX1_ADDR       (0x33)
+#define ACCEL_REG_DATAY0_ADDR       (0x34)
+#define ACCEL_REG_DATAY1_ADDR       (0x35)
+#define ACCEL_REG_DATAZ0_ADDR       (0x36)
+#define ACCEL_REG_DATAZ1_ADDR       (0x37)
+#define ACCEL_REG_FIFO_CTL_ADDR     (0x38)
+
+
+const uint8_t gyroAddr = GYRO_SENSOR_ADDR_ON;
+const uint8_t accelAddr = ACCEL_SENSOR_ADDR_OFF;
+
+
+
+//SD card
+#include <SD.h>
+ const int chipSelect = 4;
+
+
+
+// One-time setup
+void setup()
+{
+   // Start the serial port for output
+   Serial.begin(9600);
+
+   //sensors
+   // Join the I2C bus as master
+   Wire.begin();
+
+   // gyro setup
+   WriteByte(gyroAddr, ACCEL_REG_INT_ENABLE_ADDR, accelAddr); // set accel slace addr
+   WriteByte(gyroAddr, GYRO_REG_USERC_ADDR, 0x20); // set AUX_IF_EN to 1 on user control
+
+   // accel setup
+   WriteByte(accelAddr, ACCEL_REG_BW_RATE_ADDR, 0x08); // Set 25 Hz output data rate and 25 Hz bandwidth and disable low power mode
+   WriteByte(accelAddr, ACCEL_REG_PWR_CTL_ADDR, 0x08); // Disable auto sleep
+   WriteByte(accelAddr, ACCEL_REG_INT_ENABLE_ADDR, 0x0); // Disable interrupts
+   
+   
+   //SD Card
+   pinMode(10,OUTPUT);
+   // see if the card is present and can be initialized:
+   if (!SD.begin(chipSelect)) 
+   {
+    // Serial.println("Card failed, or not present");
+     // don't do anything more:
+     return;
+   }
+   Serial.println("card initialized.");
+   
+      
+}
+
+// Main program loop
+void loop()
+{
+   // gyro
+   uint8_t g_x_msb;   // X-axis most significant byte
+   uint8_t g_x_lsb;   // X-axis least significant byte
+   uint8_t g_y_msb;   // Y-axis most significant byte
+   uint8_t g_y_lsb;   // Y-axis least significant byte
+   uint8_t g_z_msb;   // Z-axis most significant byte
+   uint8_t g_z_lsb;   // Z-axis least significant byte
+   uint16_t g_x;
+   uint16_t g_y;
+   uint16_t g_z;
+
+   // accel
+   uint8_t a_x_msb;   // X-axis most significant byte
+   uint8_t a_x_lsb;   // X-axis least significant byte
+   uint8_t a_y_msb;   // Y-axis most significant byte
+   uint8_t a_y_lsb;   // Y-axis least significant byte
+   uint8_t a_z_msb;   // Z-axis most significant byte
+   uint8_t a_z_lsb;   // Z-axis least significant byte
+   uint16_t a_x;
+   uint16_t a_y;
+   uint16_t a_z;
+
+
+   // Get the value from the sensors
+   if ((ReadByte(gyroAddr, GYRO_REG_DATAX1_ADDR, &g_x_msb) == 0) &&
+       (ReadByte(gyroAddr, GYRO_REG_DATAX0_ADDR, &g_x_lsb) == 0) &&
+       (ReadByte(gyroAddr, GYRO_REG_DATAY1_ADDR, &g_y_msb) == 0) &&
+       (ReadByte(gyroAddr, GYRO_REG_DATAY0_ADDR, &g_y_lsb) == 0) &&
+       (ReadByte(gyroAddr, GYRO_REG_DATAZ1_ADDR, &g_z_msb) == 0) &&
+       (ReadByte(gyroAddr, GYRO_REG_DATAZ0_ADDR, &g_z_lsb) == 0) &&
+       (ReadByte(accelAddr, ACCEL_REG_DATAX1_ADDR, &a_x_msb) == 0) &&
+       (ReadByte(accelAddr, ACCEL_REG_DATAX0_ADDR, &a_x_lsb) == 0) &&
+       (ReadByte(accelAddr, ACCEL_REG_DATAY1_ADDR, &a_y_msb) == 0) &&
+       (ReadByte(accelAddr, ACCEL_REG_DATAY0_ADDR, &a_y_lsb) == 0) &&
+       (ReadByte(accelAddr, ACCEL_REG_DATAZ1_ADDR, &a_z_msb) == 0) &&
+       (ReadByte(accelAddr, ACCEL_REG_DATAZ0_ADDR, &a_z_lsb) == 0))
+   {
+      g_x = (g_x_msb << 8) | g_x_lsb;
+      g_y = (g_y_msb << 8) | g_y_lsb;
+      g_z = (g_z_msb << 8) | g_z_lsb;
+      
+      a_x = (a_x_msb << 8) | a_x_lsb;
+      a_y = (a_y_msb << 8) | a_y_lsb;
+      a_z = (a_z_msb << 8) | a_z_lsb;
+
+      
+      // Perform 2's complement
+      int16_t real_gx = ~(g_x - 1);
+      int16_t real_gy = ~(g_y - 1);
+      int16_t real_gz = ~(g_z - 1);
+
+      int16_t real_ax = ~(a_x - 1);
+      int16_t real_ay = ~(a_y - 1);
+      int16_t real_az = ~(a_z - 1);
+
+      /*Serial.print("\"gx\":");
+      Serial.print(real_gx);
+      Serial.print(",\"gy\":");
+      Serial.print(real_gy);
+      Serial.print(",\"gz\":");
+      Serial.print(real_gz);
+      Serial.print(",\"ax\":");
+      Serial.print(real_ax);
+      Serial.print(",\"ay\":");
+      Serial.print(real_ay);
+      Serial.print(",\"az\":");
+      Serial.println(real_az);*/
+       
+        
+  
+  
+      //sd card
+  
+      // make a string for assembling the data to log:
+      String dataString = "";
+            
+            
+      dataString += String(real_gx);
+      dataString += ",";
+      dataString += String(real_gy);
+      dataString += ",";
+      dataString += String(real_gz);
+      dataString += ",";
+      dataString += String(real_ax);
+      dataString += ",";
+      dataString += String(real_ay);
+      dataString += ",";
+      dataString += String(real_az);
+      dataString += ",";
+          
+            
+      // open the file. note that only one file can be open at a time,
+      // so you have to close this one before opening another.
+      File dataFile = SD.open("dataFile.txt", FILE_WRITE);
+            
+      // if the file is available, write to it:
+      if (dataFile) {
+         dataFile.println(String(dataString));
+         dataFile.close();
+         // print to the serial port too:
+         Serial.println(dataString);
+      }  
+      // if the file isn't open, pop up an error:
+      else {
+        // Serial.println("error opening datalog.txt");
+      }   
+      Serial.println(dataString);
+  
+  
+
+   }
+   else
+   {
+      //Serial.println("{err:'Failed to read from sensor'}");
+   }
+
+   // Run again in 1 s (1000 ms)
+   delay(75);
+}
+
+// Read a byte on the i2c interface
+int ReadByte(uint8_t addr, uint8_t reg, uint8_t *data)
+{
+   // Do an i2c write to set the register that we want to read from
+   Wire.beginTransmission(addr);
+   Wire.write(reg);
+   Wire.endTransmission();
+
+   // Read a byte from the device
+   Wire.requestFrom(addr, (uint8_t)1);
+   if (Wire.available())
+   {
+      *data = Wire.read();
+   }
+   else
+   {
+      return -1;
+   }
+   return 0;
+}
+
+// Write a byte on the i2c interface
+void WriteByte(uint8_t addr, uint8_t reg, byte data)
+{
+   // Begin the write sequence
+   Wire.beginTransmission(addr);
+
+   // First byte is to set the register pointer
+   Wire.write(reg);
+
+   // Write the data byte
+   Wire.write(data);
+
+   // End the write sequence; bytes are actually transmitted now
+   Wire.endTransmission();
+}
